@@ -42,6 +42,7 @@ export function renderUploadImageComponent({ element, onImageUrlChange }) {
               />
               Выберите фото
             </label>
+            <p class="file-upload-hint">Допустимые форматы: JPEG, PNG</p>
           `
         }
       </div>
@@ -49,19 +50,30 @@ export function renderUploadImageComponent({ element, onImageUrlChange }) {
 
     // Обработчик выбора файла
     const fileInputElement = element.querySelector(".file-upload-input");
-    fileInputElement?.addEventListener("change", () => {
-      const file = fileInputElement.files[0];
-      if (file) {
+    fileInputElement?.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) return;
+
         const labelEl = document.querySelector(".file-upload-label");
         labelEl.setAttribute("disabled", true);
         labelEl.textContent = "Загружаю файл...";
+
+        try {
+        // Проверяем формат файла
+        const acceptedTypes = ['image/jpeg', 'image/png'];
+        if (!acceptedTypes.includes(file.type)) {
+          throw new Error('Неверный формат файла');
+        }
         
         // Загружаем изображение с помощью API
-        uploadImage({ file }).then(({ fileUrl }) => {
-          imageUrl = fileUrl; // Сохраняем URL загруженного изображения
-          onImageUrlChange(imageUrl); // Уведомляем о изменении URL изображения
-          render(); // Перерисовываем компонент с новым состоянием
-        });
+        const response = await uploadImage({ file });
+        imageUrl = response.fileUrl; // Сохраняем URL загруженного изображения
+        onImageUrlChange(imageUrl); // Уведомляем о изменении URL изображения
+        render(); // Перерисовываем компонент с новым состоянием
+      } catch (error) {
+        alert(`Ошибка загрузки: ${error.message}`);
+        labelEl.removeAttribute("disabled");
+        labelEl.textContent = "Выбрать фото";
       }
     });
 

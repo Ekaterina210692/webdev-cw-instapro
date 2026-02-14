@@ -109,25 +109,121 @@ const renderApp = () => {
   if (page === ADD_POSTS_PAGE) {
     return renderAddPostPageComponent({
       appEl,
-      onAddPostClick({ description, imageUrl }) {
-        // @TODO: реализовать добавление поста в API
-        console.log("Добавляю пост...", { description, imageUrl });
-        goToPage(POSTS_PAGE);
+      async onAddPostClick({ description, imageUrl }) {
+        try {
+          // Проверяем наличие токена
+          const token = getToken();
+          if (!token) {
+            throw new Error("Нет авторизации");
+          }
+
+          // Отправляем данные на сервер
+          const response = await fetch(`${postsHost}/posts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token,
+            },
+            body: JSON.stringify({
+              description,
+              imageUrl,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Ошибка при создании поста");
+          }
+          goToPage(POSTS_PAGE);
+        } catch (error) {
+          console.error("Ошибка при добавлении поста:", error);
+          alert("Не удалось добавить пост. Попробуйте позже.");
+        }
       },
     });
   }
 
+
   if (page === POSTS_PAGE) {
     return renderPostsPageComponent({
       appEl,
+      posts,
+      goToPage,
     });
   }
 
   if (page === USER_POSTS_PAGE) {
     // @TODO: реализовать страницу с фотографиями отдельного пользвателя
-    appEl.innerHTML = "Здесь будет страница фотографий пользователя";
+     (async () => {
+    try {
+      const userId = data.userId;
+      const response = await fetch(`${postsHost}/users/${userId}/posts`, {
+        method: "GET",
+        headers: {
+          Authorization: getToken(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Ошибка при получении постов пользователя");
+      }
+
+      const userPosts = await response.json();
+      posts = userPosts;
+
+      appEl.innerHTML = `
+        <div class="user-posts-container">
+          <h2>Посты пользователя ${userId}</h2>
+          ${userPosts.map(post => `
+            <div class="user-post">
+              <img src="${post.imageUrl}" alt="Пост">
+              <p>${post.description}</p>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (error) {
+      console.error("Ошибка:", error);
+      appEl.innerHTML = "Не удалось загрузить посты пользователя";
+    }
     return;
-  }
+  })
+}
 };
 
+// Обработка ошибок
+async function handleError(error) {
+  console.error("Произошла ошибка:", error);
+  alert("Произошла ошибка. Попробуйте позже.");
+}
+
+// Начальная загрузка
 goToPage(POSTS_PAGE);
+
+// Дополнительные обработчики
+window.addEventListener("popstate", () => {
+  goToPage(POSTS_PAGE);
+});
+
+// Функция для обновления токена
+async function refreshToken() {
+  try {
+    const response = await fetch(`${baseHost}/api/user/refresh`, {
+      method: "POST",
+      headers: {
+        Authorization: getToken(),
+      },
+    });
+
+    if (!response.ok) {
+      logout();
+      return;
+    }
+
+    const newUser = await response.json();
+    user = newUser;
+    saveUserToLocalStorage(user);
+  } catch (error) {
+    console.error("Ошибка обновления токена:", error);
+    logout();
+  }
+}

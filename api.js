@@ -57,13 +57,19 @@ export function loginUser({ login, password }) {
 
 // Загружает картинку в облако, возвращает url загруженной картинки
 export function uploadImage({ file }) {
-  const data = new FormData();
-  data.append("file", file);
+  const formData = new FormData();
+  formData.append("image", file);
 
   return fetch(baseHost + "/api/upload/image", {
     method: "POST",
-    body: data,
-  }).then((response) => {
-    return response.json();
+    headers: {
+      Authorization: getToken()
+    },
+    body: formData
+  })
+  .then(response => response.json())
+  .catch(error => {
+    console.error('Ошибка загрузки:', error);
+    throw error;
   });
 }
